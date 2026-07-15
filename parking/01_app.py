@@ -14,7 +14,7 @@ uploaded_file = st.file_uploader("주차장 데이터 CSV 파일을 업로드해
 if uploaded_file is not None:
     try:
         # 데이터 불러오기 (인코딩 문제는 환경에 맞게 'utf-8' 또는 'cp949'로 변경 가능)
-        df = pd.read_csv(uploaded_file, encoding='utf-8')
+        df = pd.read_csv(uploaded_file, encoding='cp949')
         
         # 필수 컬럼 존재 여부 확인 데이터 가이드라인 제공
         required_columns = ['주차장명', '위도', '경도', '주소', '주차요금']
