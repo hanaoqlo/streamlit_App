@@ -37,7 +37,7 @@ if uploaded_file is not None:
         st.stop()
 
     # 필수 컬럼 확인
-    required_columns = ["주차장명", "주소", "위도", "경도", "기본요금"]
+    required_columns = ["주차장명", "주소", "위도", "경도", "기본 주차 요금"]
 
     missing_columns = [col for col in required_columns if col not in df.columns]
 
@@ -75,9 +75,9 @@ if uploaded_file is not None:
 
 {row['주소']}
 
-**기본요금**
+**기본 주차 요금**
 
-{row['기본요금']}
+{row['기본 주차 요금']}
 
 ---
 """)
@@ -96,7 +96,7 @@ if uploaded_file is not None:
         + "<br><b>주소</b> : "
         + df["주소"].astype(str)
         + "<br><b>요금</b> : "
-        + df["기본요금"].astype(str)
+        + df["기본 주차 요금"].astype(str)
     )
 
     layer = pdk.Layer(
