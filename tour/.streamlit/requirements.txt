@@ -1,0 +1,16 @@
+streamlit
+requests
+pandas
+streamlit-folium
+folium
+Pillow
+python-dotenv
+plotly
+streamlit
+requests
+pandas
+streamlit-folium
+folium
+plotly
+Pillow
+python-dotenv
