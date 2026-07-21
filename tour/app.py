@@ -22,9 +22,10 @@ except KeyError:
 # 3. 한국관광공사 API 호출 함수
 @st.cache_data(ttl=3600)
 def get_festival_data(event_start_date):
-    url = "https://apis.data.go.kr/B551011/KorService1/searchFestival1"
+    #공공데이터포털 https 타임아웃 방지를 위해 http 사용
+    url = "http://apis.data.go.kr/B551011/KorService1/searchFestival1"
 
-    # requests가 params를 전달할 때 자동 인코딩하므로 API_KEY는 디코딩 키여야 합니다.
+    # requests가 params 전달 시 자동 인코딩하므로 API_KEY는 디코딩 키여야 합니다.
     params = {
         "serviceKey": API_KEY,
         "numOfRows": "100",
@@ -38,14 +39,15 @@ def get_festival_data(event_start_date):
     }
 
     try:
-        response = requests.get(url, params=params, timeout=10)
+        # 서버 응답 지연을 대비해 timeout을 30초로 설정
+        response = requests.get(url, params=params, timeout=30)
 
         # HTTP 응답 상태 체크
         if response.status_code != 200:
-            st.error(f"API 요청 실패 (HTTP {response.status_code})")
+            st.error(f"API 요청 실패 (HTTP 상태 코드: {response.status_code})")
             return pd.DataFrame()
 
-        # JSON 디코딩 테스트
+        # JSON 디코딩
         res_data = response.json()
 
         # API 내부 헤더 결과 검증
@@ -59,11 +61,15 @@ def get_festival_data(event_start_date):
         items = res_data["response"]["body"]["items"]["item"]
         return pd.DataFrame(items)
 
+    except requests.exceptions.Timeout:
+        st.error(
+            "⏱️ 공공데이터포털 서버의 응답이 지연되고 있습니다. 잠시 후 새로고침해 주세요."
+        )
+        return pd.DataFrame()
     except requests.exceptions.JSONDecodeError:
         st.error(
             "❌ API 응답을 해석할 수 없습니다.\n"
-            "Secrets에 등록된 TOUR_API_KEY가 '디코딩(Decoding)' 키인지, "
-            "또는 공공데이터포털에서 API 승인이 완료되었는지 확인해 주세요."
+            "Secrets의 TOUR_API_KEY가 '디코딩(Decoding)' 키인지 확인해 주세요."
         )
         return pd.DataFrame()
     except Exception as e:
@@ -100,81 +106,3 @@ search_keyword = st.sidebar.text_input("축제명 검색", "")
 if search_keyword:
     df_filtered = df[df["title"].str.contains(search_keyword, na=False)]
 else:
-    df_filtered = df
-
-# --- 탭 구성 ---
-tab1, tab2, tab3 = st.tabs(
-    ["🎰 축제 랜덤 뽑기", "📋 축제 목록 & 지도", "💬 한 줄 방명록"]
-)
-
-# [Tab 1] 축제 랜덤 뽑기
-with tab1:
-    st.subheader("🎲 결정장애 해결! 오늘 갈 축제 랜덤 추천")
-    st.write("버튼을 누르면 전국 축제 중 하나를 무작위로 추천해 드립니다.")
-
-    if st.button("🎉 아무 축제나 하나 뽑아줘!", use_container_width=True):
-        selected = df.sample(n=1).iloc[0]
-
-        st.balloons()
-        st.success(f"🎉 **{selected['title']}** (으)로 떠나보는 건 어떨까요?")
-
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            img_url = selected.get("firstimage")
-            if img_url and str(img_url).startswith("http"):
-                st.image(img_url, use_container_width=True)
-            else:
-                st.info("🖼️ 대표 이미지가 없는 축제입니다.")
-        with col2:
-            st.markdown(f"**📍 위치:** {selected.get('addr1', '정보 없음')}")
-            st.markdown(
-                f"**📅 기간:** {selected.get('eventstartdate', '')} ~ {selected.get('eventenddate', '')}"
-            )
-            st.markdown(f"**📞 문의:** {selected.get('tel', '정보 없음')}")
-
-# [Tab 2] 목록 및 지도
-with tab2:
-    st.subheader("📍 축제 위치 지도")
-    if not df_map.empty:
-        st.map(df_map[["lat", "lon"]])
-    else:
-        st.caption("위치 데이터가 제공되지 않습니다.")
-
-    st.subheader(f"📋 축제 리스트 ({len(df_filtered)}건)")
-
-    for idx, row in df_filtered.iterrows():
-        with st.expander(f"🎪 {row['title']}"):
-            c1, c2 = st.columns([1, 3])
-            with c1:
-                img_url = row.get("firstimage2") or row.get("firstimage")
-                if img_url and str(img_url).startswith("http"):
-                    st.image(img_url, use_container_width=True)
-            with c2:
-                st.write(f"**주소:** {row.get('addr1', '정보 없음')}")
-                st.write(
-                    f"**일정:** {row.get('eventstartdate', '')} ~ {row.get('eventenddate', '')}"
-                )
-                if row.get("tel"):
-                    st.write(f"**전화번호:** {row.get('tel')}")
-
-# [Tab 3] 커뮤니티 방명록
-with tab3:
-    st.subheader("💬 축제 이야기 나누기")
-
-    if "comments" not in st.session_state:
-        st.session_state.comments = [
-            {"name": "여행가", "text": "주말에 가볼 만한 축제 보러 왔어요!"}
-        ]
-
-    with st.form("comment_form"):
-        name = st.text_input("닉네임", max_chars=10)
-        text = st.text_area("방명록 작성", max_chars=100)
-        submitted = st.form_submit_button("등록하기")
-
-        if submitted and name and text:
-            st.session_state.comments.append({"name": name, "text": text})
-            st.success("댓글이 등록되었습니다!")
-
-    st.divider()
-    for comment in reversed(st.session_state.comments):
-        st.write(f"**{comment['name']}**: {comment['text']}")
